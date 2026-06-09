@@ -35,6 +35,7 @@ export interface Recording {
   endTime: number;
   duration: number;
   frames: RecordingFrame[];
+  archived?: boolean;
 }
 
 export interface PlaybackState {

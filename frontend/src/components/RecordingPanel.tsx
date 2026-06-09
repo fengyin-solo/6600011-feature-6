@@ -23,6 +23,58 @@ const formatTime = (ms: number): string => {
   });
 };
 
+const dialogOverlayStyle: React.CSSProperties = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  background: 'rgba(0,0,0,0.5)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 1000,
+};
+
+const dialogBoxStyle: React.CSSProperties = {
+  background: '#fff',
+  padding: '24px',
+  borderRadius: '12px',
+  width: '320px',
+  boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+};
+
+const dialogInputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  border: '1px solid #e0e0e0',
+  borderRadius: '8px',
+  fontSize: '14px',
+  marginBottom: '16px',
+  boxSizing: 'border-box',
+};
+
+const btnPrimary: React.CSSProperties = {
+  padding: '8px 16px',
+  background: '#1565c0',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '6px',
+  fontSize: '13px',
+  fontWeight: 500,
+  cursor: 'pointer',
+};
+
+const btnSecondary: React.CSSProperties = {
+  padding: '8px 16px',
+  background: '#f5f5f5',
+  color: '#666',
+  border: 'none',
+  borderRadius: '6px',
+  fontSize: '13px',
+  cursor: 'pointer',
+};
+
 export const RecordingPanel: React.FC = () => {
   const {
     isRecording,
@@ -34,6 +86,8 @@ export const RecordingPanel: React.FC = () => {
     startRecording,
     stopRecording,
     deleteRecording,
+    renameRecording,
+    toggleArchive,
     enterPlaybackMode,
     exitPlaybackMode,
     setPlaybackTime,
@@ -44,6 +98,10 @@ export const RecordingPanel: React.FC = () => {
 
   const [recordingName, setRecordingName] = useState('');
   const [showNameDialog, setShowNameDialog] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [renameTargetId, setRenameTargetId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const timerRef = useRef<number | null>(null);
   const playbackTimerRef = useRef<number | null>(null);
@@ -130,6 +188,162 @@ export const RecordingPanel: React.FC = () => {
     const time = percentage * activeRecording.duration;
     setPlaybackTime(time);
   };
+
+  const handleOpenRename = (recording: Recording) => {
+    setRenameTargetId(recording.id);
+    setRenameValue(recording.name);
+    setShowRenameDialog(true);
+  };
+
+  const handleConfirmRename = () => {
+    if (renameTargetId && renameValue.trim()) {
+      renameRecording(renameTargetId, renameValue.trim());
+    }
+    setShowRenameDialog(false);
+    setRenameTargetId(null);
+    setRenameValue('');
+  };
+
+  const handleCancelRename = () => {
+    setShowRenameDialog(false);
+    setRenameTargetId(null);
+    setRenameValue('');
+  };
+
+  const activeRecordings = recordings.filter(r => !r.archived);
+  const archivedRecordings = recordings.filter(r => r.archived);
+
+  const renderRecordingItem = (recording: Recording) => (
+    <div
+      key={recording.id}
+      style={{
+        padding: '12px',
+        borderRadius: '8px',
+        border: activeRecording?.id === recording.id
+          ? '2px solid #1565c0'
+          : recording.archived
+            ? '1px solid #e0e0e0'
+            : '1px solid #e0e0e0',
+        marginBottom: '8px',
+        background: activeRecording?.id === recording.id ? '#e3f2fd' : recording.archived ? '#fafafa' : '#fff',
+        opacity: recording.archived ? 0.8 : 1,
+      }}
+    >
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: '6px',
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: '#333',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {recording.name}
+            </span>
+            {recording.archived && (
+              <span style={{
+                fontSize: '9px',
+                padding: '1px 6px',
+                background: '#e0e0e0',
+                color: '#757575',
+                borderRadius: '3px',
+                fontWeight: 500,
+                flexShrink: 0,
+              }}>
+                已归档
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+            {formatTime(recording.startTime)} · {CHANNEL_NAMES[recording.channel] || recording.channel}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+          <button
+            onClick={() => handlePlayRecording(recording)}
+            style={{
+              padding: '4px 10px',
+              background: activeRecording?.id === recording.id ? '#1565c0' : '#f5f5f5',
+              color: activeRecording?.id === recording.id ? '#fff' : '#1565c0',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '11px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            {activeRecording?.id === recording.id ? '回放中' : '▶ 回放'}
+          </button>
+          <button
+            onClick={() => handleOpenRename(recording)}
+            title="重命名"
+            style={{
+              padding: '4px 8px',
+              background: '#f5f5f5',
+              color: '#666',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '11px',
+              cursor: 'pointer',
+            }}
+          >
+            ✏️
+          </button>
+          <button
+            onClick={() => toggleArchive(recording.id)}
+            title={recording.archived ? '取消归档' : '归档'}
+            style={{
+              padding: '4px 8px',
+              background: recording.archived ? '#e8f5e9' : '#fff3e0',
+              color: recording.archived ? '#388e3c' : '#e65100',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '11px',
+              cursor: 'pointer',
+            }}
+          >
+            {recording.archived ? '📤' : '📥'}
+          </button>
+          <button
+            onClick={() => deleteRecording(recording.id)}
+            style={{
+              padding: '4px 8px',
+              background: '#ffebee',
+              color: '#d32f2f',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '11px',
+              cursor: 'pointer',
+            }}
+          >
+            🗑
+          </button>
+        </div>
+      </div>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <span style={{ fontSize: '11px', color: '#666' }}>
+          时长: {formatDuration(recording.duration)} · {recording.frames.length} 帧
+        </span>
+        <span style={{ fontSize: '11px', color: '#999' }}>
+          {recording.channel}
+        </span>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ padding: '16px', background: '#fff', borderRadius: '12px', margin: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
@@ -348,9 +562,9 @@ export const RecordingPanel: React.FC = () => {
           marginBottom: '8px',
           fontWeight: 500,
         }}>
-          历史录制 ({recordings.length})
+          常用录制 ({activeRecordings.length})
         </div>
-        {recordings.length === 0 ? (
+        {activeRecordings.length === 0 ? (
           <div style={{
             padding: '24px',
             textAlign: 'center',
@@ -363,110 +577,48 @@ export const RecordingPanel: React.FC = () => {
           </div>
         ) : (
           <div style={{ maxHeight: '280px', overflow: 'auto' }}>
-            {[...recordings].reverse().map((recording) => (
-              <div
-                key={recording.id}
-                style={{
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: activeRecording?.id === recording.id
-                    ? '2px solid #1565c0'
-                    : '1px solid #e0e0e0',
-                  marginBottom: '8px',
-                  background: activeRecording?.id === recording.id ? '#e3f2fd' : '#fff',
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  marginBottom: '6px',
-                }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: '#333',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}>
-                      {recording.name}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
-                      {formatTime(recording.startTime)} · {CHANNEL_NAMES[recording.channel] || recording.channel}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                    <button
-                      onClick={() => handlePlayRecording(recording)}
-                      style={{
-                        padding: '4px 10px',
-                        background: activeRecording?.id === recording.id ? '#1565c0' : '#f5f5f5',
-                        color: activeRecording?.id === recording.id ? '#fff' : '#1565c0',
-                        border: 'none',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {activeRecording?.id === recording.id ? '回放中' : '▶ 回放'}
-                    </button>
-                    <button
-                      onClick={() => deleteRecording(recording.id)}
-                      style={{
-                        padding: '4px 8px',
-                        background: '#ffebee',
-                        color: '#d32f2f',
-                        border: 'none',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                </div>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}>
-                  <span style={{ fontSize: '11px', color: '#666' }}>
-                    时长: {formatDuration(recording.duration)} · {recording.frames.length} 帧
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#999' }}>
-                    {recording.channel}
-                  </span>
-                </div>
-              </div>
-            ))}
+            {[...activeRecordings].reverse().map(renderRecordingItem)}
           </div>
         )}
       </div>
 
+      {archivedRecordings.length > 0 && (
+        <div style={{ marginTop: '16px' }}>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px 0',
+              fontSize: '12px',
+              color: '#999',
+              fontWeight: 500,
+            }}
+          >
+            <span style={{
+              display: 'inline-block',
+              transition: 'transform 0.2s',
+              transform: showArchived ? 'rotate(90deg)' : 'rotate(0deg)',
+            }}>
+              ▶
+            </span>
+            归档录制 ({archivedRecordings.length})
+          </button>
+          {showArchived && (
+            <div style={{ maxHeight: '280px', overflow: 'auto' }}>
+              {[...archivedRecordings].reverse().map(renderRecordingItem)}
+            </div>
+          )}
+        </div>
+      )}
+
       {showNameDialog && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            background: '#fff',
-            padding: '24px',
-            borderRadius: '12px',
-            width: '320px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-          }}>
+        <div style={dialogOverlayStyle}>
+          <div style={dialogBoxStyle}>
             <h4 style={{ margin: '0 0 16px', fontSize: '16px', color: '#333' }}>
               保存录制
             </h4>
@@ -476,49 +628,39 @@ export const RecordingPanel: React.FC = () => {
               onChange={(e) => setRecordingName(e.target.value)}
               placeholder="输入录制名称（可选）"
               autoFocus
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '1px solid #e0e0e0',
-                borderRadius: '8px',
-                fontSize: '14px',
-                marginBottom: '16px',
-                boxSizing: 'border-box',
-              }}
+              style={dialogInputStyle}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleConfirmSave();
               }}
             />
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={handleCancelSave}
-                style={{
-                  padding: '8px 16px',
-                  background: '#f5f5f5',
-                  color: '#666',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                }}
-              >
-                取消
-              </button>
-              <button
-                onClick={handleConfirmSave}
-                style={{
-                  padding: '8px 16px',
-                  background: '#1565c0',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                保存
-              </button>
+              <button onClick={handleCancelSave} style={btnSecondary}>取消</button>
+              <button onClick={handleConfirmSave} style={btnPrimary}>保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRenameDialog && (
+        <div style={dialogOverlayStyle}>
+          <div style={dialogBoxStyle}>
+            <h4 style={{ margin: '0 0 16px', fontSize: '16px', color: '#333' }}>
+              重命名录制
+            </h4>
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              placeholder="输入新名称"
+              autoFocus
+              style={dialogInputStyle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmRename();
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={handleCancelRename} style={btnSecondary}>取消</button>
+              <button onClick={handleConfirmRename} style={btnPrimary}>确认</button>
             </div>
           </div>
         </div>

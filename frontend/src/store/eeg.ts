@@ -42,6 +42,8 @@ interface EEGState {
   stopRecording: (name: string) => void;
   addRecordingFrame: (eeg: EEGData, bands: BandPower, brainState: BrainState) => void;
   deleteRecording: (id: string) => void;
+  renameRecording: (id: string, name: string) => void;
+  toggleArchive: (id: string) => void;
   enterPlaybackMode: (recording: Recording) => void;
   exitPlaybackMode: () => void;
   setPlaybackTime: (time: number) => void;
@@ -125,6 +127,30 @@ export const useEEGStore = create<EEGState>((set, get) => ({
     } else {
       set({ recordings });
     }
+  },
+  renameRecording: (id, name) => {
+    const recordings = get().recordings.map(r =>
+      r.id === id ? { ...r, name } : r
+    );
+    saveRecordings(recordings);
+    const { activeRecording } = get();
+    const updates: Partial<EEGState> = { recordings };
+    if (activeRecording?.id === id) {
+      updates.activeRecording = { ...activeRecording, name };
+    }
+    set(updates);
+  },
+  toggleArchive: (id) => {
+    const recordings = get().recordings.map(r =>
+      r.id === id ? { ...r, archived: !r.archived } : r
+    );
+    saveRecordings(recordings);
+    const { activeRecording } = get();
+    const updates: Partial<EEGState> = { recordings };
+    if (activeRecording?.id === id) {
+      updates.activeRecording = { ...activeRecording, archived: !activeRecording.archived };
+    }
+    set(updates);
   },
   enterPlaybackMode: (recording) => {
     if (recording.frames.length === 0) return;
